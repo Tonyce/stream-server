@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      video {
+        /* display: none; */
+      }
+      #canvas {
+        background: black;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <video playsinline autoplay muted></video>
+    <canvas id="canvas"></canvas>
+    <button>Take snapshot</button>
+  </body>
+
+  <script src="./canvas.js"></script>
+  <script>
+    const ws = new WebSocket("ws://localhost:16547");
+
+    ws.addEventListener("open", (e) => {
+      const mediaStream = new MediaStream();
+
+      const video = document.querySelector("video");
+      const canvas = (window.canvas = document.querySelector("canvas"));
+      canvas.width = 480;
+      canvas.height = 360;
+
+      const canvasCap = canvas.captureStream(30);
+      canvasCap.getTracks().forEach(mediaStream.addTrack.bind(mediaStream));
+
+      // base_image = new Image();
+      // base_image.src = "face.png";
+      // base_image.onload = function () {
+      //   canvas.getContext("2d").drawImage(base_image, 0, 0);
+      // };
+
+      const button = document.querySelector("button");
+      button.onclick = function () {
+        const mediaRecorder = new MediaRecorder(mediaStream, {
+          mimeType: "video/webm;codecs=h264",
+          audioBitsPerSecond: 44100, // 44.1kHz
+          videoBitsPerSecond: 3 * 1024 * 1024, // 3000k 画质
+        });
+
+        mediaRecorder.addEventListener("dataavailable", (e) => {
+          console.log(e.data);
+          // 将数据发送到后台
+          // 发送时 e.data 的类型是 Blob
+          ws.send(e.data);
+        });
+
+        // 开始录制并每隔 1s 发送一次数据
+        mediaRecorder.start(1000);
+        drawVedio();
+        //   canvas.width = video.videoWidth;
+        //   canvas.height = video.videoHeight;
+        function drawVedio() {
+          setTimeout(() => {
+            canvas.getContext("2d").drawImage(video, 0, 0, 100, 100);
+            drawVedio();
+          }, 0);
+        }
+      };
+
+      const constraints = {
+        audio: true,
+        video: true,
+      };
+
+      function handleSuccess(stream) {
+        stream.getTracks().forEach((item) => {
+          console.log(item)
+          if (item.kind == "audio") {
+            mediaStream.addTrack(item);
+          } else {
+            // video.srcObject = item;
+          }
+        });
+        // window.stream = stream; // make stream available to browser console
+        video.srcObject = stream;
+      }
+
+      function handleError(error) {
+        console.log(
+          "navigator.MediaDevices.getUserMedia error: ",
+          error.message,
+          error.name
+        );
+      }
+
+      navigator.mediaDevices
+        .getUserMedia(constraints)
+        .then(handleSuccess)
+        .catch(handleError);
+    });
+  </script>
+</html>

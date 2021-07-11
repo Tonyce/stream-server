@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body {
+        background: linear-gradient(#000, #151515);
+      }
+
+      #canvas {
+        background: black;
+        display: block;
+      }
+
+      /* .clocks {
+    height: 500px;
+    margin: 25px auto;
+    position: relative;
+    width: 500px;
+} */
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <!-- <div class="clocks"> -->
+    <!-- <canvas id="canvas" width="500" height="500"></canvas> -->
+    <!-- </div> -->
+    <audio></audio>
+    <button id="start">start</button>
+  </body>
+  <!-- <script src="./jquery.js"></script> -->
+  <script src="./canvas.js"></script>
+  <!-- <script src="./clock.js"></script> -->
+  <script>
+    const ws = new WebSocket("ws://localhost:16547");
+
+    ws.addEventListener("open", (e) => {
+      const btn = document.getElementById("start");
+      btn.addEventListener("click", () => {
+        audioContext.resume().then(() => {
+          console.log("Playback resumed successfully");
+        });
+      });
+
+      const mediaStream = new MediaStream();
+
+      // 添加视频轨
+      const video = document.querySelector("canvas").captureStream(30);
+      video.getTracks().forEach(mediaStream.addTrack.bind(mediaStream));
+
+      // 添加音频轨（From <audio> element）
+      // const audioContext = new AudioContext();
+      // const audioSrc = audioContext.createMediaElementSource(document.querySelector('audio'));
+      // const destination = audioContext.createMediaStreamDestination();
+      // audioSrc.connect(destination);
+      // destination.stream.getTracks().forEach(mediaStream.addTrack.bind(mediaStream));
+
+      // 创建 MediaRecorder
+      const mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType: "video/webm;codecs=h264",
+        audioBitsPerSecond: 44100, // 44.1kHz
+        // videoBitsPerSecond: 3000000 // 3000k 画质
+        videoBitsPerSecond: 3 * 1024 * 1024,
+      });
+
+      mediaRecorder.addEventListener("dataavailable", (e) => {
+        console.log(e.data);
+        // 将数据发送到后台
+        // 发送时 e.data 的类型是 Blob
+        ws.send(e.data);
+      });
+
+      // 开始录制并每隔 1s 发送一次数据
+      mediaRecorder.start(1000);
+    });
+  </script>
+</html>
